@@ -56,7 +56,7 @@ def loadData(inputDir="GEFCom2012", maxDataPoints=-1):
                 completeDfs.append(completeDf[startIdx:endPoint])
             return(trainingDfs, completeDfs)
         
-def convertToBatches(ts, timeSteps, batchSize, nHorizons):
+def convertToBatches(ts, timeSteps, batchSize, nHorizons, cutHead=True):
     """
     Arranges a univariate time-series into a form for use in training RNN model
     Each batch may be used as input for tf.nn.dynamic_rnn.
@@ -68,6 +68,8 @@ def convertToBatches(ts, timeSteps, batchSize, nHorizons):
     :type batchSize: int
     :param nHorizons: number of horizons the model must forecast at each time (equal outputSize of RNN)
     :type nHorizons: int
+    :param cutHead: choose to cut the head or tail of the time-series to make its length multiple of timeSteps*batchSize
+    :type cutHead: bool
     :return: zip(xs, ys) with
                 xs: numpy array size [nInstances x batchSize x timeSteps x 1]
                  ys: numpy array size [nInstances x batchSize x timeSteps x nHorizons]
@@ -78,7 +80,10 @@ def convertToBatches(ts, timeSteps, batchSize, nHorizons):
     m = timeSteps * batchSize
     p = (n-nHorizons) % m
     #Remove first part of ts to make its length n multiple of timeSteps*batchSize+1
-    cleanTs = ts[p:]
+    if cutHead:
+        cleanTs = ts[p:]
+    else:
+        cleanTs = ts[:-p]
     n = len(cleanTs)
     instances = (n-nHorizons)/m
     xs = cleanTs[:-nHorizons].reshape(instances, batchSize, timeSteps, 1) #shape [nInstances x batchSize x timeSteps x 1]
