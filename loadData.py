@@ -80,10 +80,14 @@ def convertToBatches(ts, timeSteps, batchSize, nHorizons, cutHead=True):
     m = timeSteps * batchSize
     p = (n-nHorizons) % m
     #Remove first part of ts to make its length n multiple of timeSteps*batchSize+1
-    if cutHead:
-        cleanTs = ts[p:]
+    if (p==0):
+        cleanTs = ts
     else:
-        cleanTs = ts[:-p]
+        if cutHead:
+            cleanTs = ts[p:]
+        else:
+            cleanTs = ts[:-p]
+            
     n = len(cleanTs)
     instances = (n-nHorizons)/m
     xs = cleanTs[:-nHorizons].reshape(instances, batchSize, timeSteps, 1) #shape [nInstances x batchSize x timeSteps x 1]
