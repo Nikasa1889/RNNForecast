@@ -25,7 +25,7 @@ class RNN(object):
         self.nHorizons = nHorizons
         self.inputSize = inputSize
         self.nHiddenUnits = nHiddenUnits
-
+        self.cellType = cellType
         with tf.name_scope("Parameters"):
             self.learningRate = tf.placeholder(tf.float32, name="learningRate")
             self.keepProbability = tf.placeholder(tf.float32, name="keepProbability")
@@ -97,8 +97,7 @@ class RNN(object):
 
         self.initialize = tf.initialize_all_variables()
         self.summary = tf.merge_all_summaries()
-
-    def train(self, session, init, ts, parameters, exitCriteria, validation, loggingInterval, directories, logger):
+    def train(self, session, init, ts, parameters, exitCriteria, validation, loggingInterval, directories, logger, continueTraining=False):
         epoch = 1
         iteration = 0
         state = None
@@ -108,8 +107,10 @@ class RNN(object):
             self.logger = logging.getLogger('dummy')
         else:
             self.logger = logger
+        
         summaryWriter = self.summaryWriter(directories.summary, session)
-        session.run(self.initialize, feed_dict={self.init: init})
+        if not continueTraining:
+            session.run(self.initialize, feed_dict={self.init: init})
         try:
             # Enumerate over the training set until exit criteria are met.
             tsFit = []
@@ -171,7 +172,8 @@ class RNN(object):
             "inputSize": self.inputSize,
             "nHiddenUnits": self.nHiddenUnits,
             "nLayers": self.nLayers,
-            "nHorizons": self.nHorizons
+            "nHorizons": self.nHorizons,
+            "cellType": self.cellType.value
         }
         with open(self._parametersFile(modelDirectory), "w") as f:
             json.dump(parameters, f, indent=4)
@@ -235,7 +237,7 @@ class RNN(object):
         with open(cls._parametersFile(modelDirectory)) as f:
             parameters = json.load(f)
         model = cls(parameters["maxGradient"], parameters["timeSteps"], parameters["nHorizons"], 
-                    parameters["inputSize"],parameters["nHiddenUnits"], parameters["nLayers"])
+                    parameters["inputSize"],parameters["nHiddenUnits"], RNNCellType(parameters["cellType"]), parameters["nLayers"])
         tf.train.Saver().restore(session, cls._modelFile(modelDirectory))
         return model
 
