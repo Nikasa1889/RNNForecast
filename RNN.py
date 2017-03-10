@@ -6,19 +6,21 @@ import json
 from loadData import convertToBatches
 import logging
 from enum import Enum 
+from esn_cell import ESNCell
 __version__ = "1.0.0"
 
 class RNNCellType(Enum):
     LSTM = 1
-    BasicRNN = 2
+    BasicCell = 2
     GRU = 3
+    ESN = 4
     
 class RNN(object):
     """Recursive Neural Network nlayers without CNN as feature extractor
        cellType can be RNN, LSTM or GRU
        there is dropoutWrapper for each cell"""
     
-    def __init__(self, maxGradient, timeSteps, nHorizons, inputSize, nHiddenUnits, cellType = RNNCellType.LSTM, nLayers = 2):
+    def __init__(self, maxGradient, timeSteps, nHorizons, inputSize, nHiddenUnits, cellType = RNNCellType.BasicCell, nLayers = 2):
         self.maxGradient = maxGradient
         self.nLayers = nLayers
         self.timeSteps = timeSteps
@@ -52,7 +54,10 @@ class RNN(object):
                 if (cellType == RNNCellType.GRU):
                     cell = tf.nn.rnn_cell.GRUCell(nHiddenUnits)
                 else:
-                    cell = tf.nn.rnn_cell.BasicRNNCell(nHiddenUnits)
+                    if (cellType == RNNCellType.ESN):
+                        cell = ESNCell(nHiddenUnits, inputSize)
+                    else:
+                        cell = tf.nn.rnn_cell.BasicRNNCell(nHiddenUnits)
                     
             cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=self.keepProbability)
             self.rnn_layers = tf.nn.rnn_cell.MultiRNNCell([cell] * nLayers, state_is_tuple=True)
