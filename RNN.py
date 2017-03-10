@@ -3,13 +3,22 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import json
-from loadData import loadData, convertToBatches
+from loadData import convertToBatches
 import logging
+from enum import Enum 
 __version__ = "1.0.0"
-class RNN(object):
-    """Recursive Neural Network 2 layers without CNN as feature extractor"""
+
+class RNNCellType(Enum):
+    LSTM = 1
+    BasicRNN = 2
+    GRU = 3
     
-    def __init__(self, maxGradient, timeSteps, nHorizons, inputSize, nHiddenUnits, nLayers):
+class RNN(object):
+    """Recursive Neural Network nlayers without CNN as feature extractor
+       cellType can be RNN, LSTM or GRU
+       there is dropoutWrapper for each cell"""
+    
+    def __init__(self, maxGradient, timeSteps, nHorizons, inputSize, nHiddenUnits, cellType = RNNCellType.LSTM, nLayers = 2):
         self.maxGradient = maxGradient
         self.nLayers = nLayers
         self.timeSteps = timeSteps
@@ -37,17 +46,29 @@ class RNN(object):
         #    self.embedded_input = tf.matmul(self.input, self.w) + self.b
 
         with tf.name_scope("RNN"):
-            cell = tf.nn.rnn_cell.LSTMCell(nHiddenUnits, state_is_tuple=True)
+            if (cellType == RNNCellType.LSTM):
+                cell = tf.nn.rnn_cell.LSTMCell(nHiddenUnits, state_is_tuple=True)
+            else:
+                if (cellType == RNNCellType.GRU):
+                    cell = tf.nn.rnn_cell.GRUCell(nHiddenUnits)
+                else:
+                    cell = tf.nn.rnn_cell.BasicRNNCell(nHiddenUnits)
+                    
             cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=self.keepProbability)
             self.rnn_layers = tf.nn.rnn_cell.MultiRNNCell([cell] * nLayers, state_is_tuple=True)
-            state_placeholder = tf.placeholder(tf.float32, [nLayers, 2, None, nHiddenUnits])
-            #Unpack the state_placeholder into tuple to use with tensorflow native RNN API
-            l = tf.unpack(state_placeholder, axis=0)
-            self.state = tuple(
+            if (cellType == RNNCellType.LSTM):
+                state_placeholder = tf.placeholder(tf.float32, [nLayers, 2, None, nHiddenUnits])
+                #Unpack the state_placeholder into tuple to use with tensorflow native RNN API
+                l = tf.unpack(state_placeholder, axis=0)
+                self.state = tuple(
                                 [tf.nn.rnn_cell.LSTMStateTuple(l[idx][0], l[idx][1]) 
-                                for idx in range(nLayers)]
-                              )
-            
+                                for idx in range(nLayers)])
+            else:
+                state_placeholder = tf.placeholder(tf.float32, [nLayers, None, nHiddenUnits])
+                #Unpack the state_placeholder into tuple to use with tensorflow native RNN API
+                l = tf.unpack(state_placeholder, axis=0)
+                self.state = tuple(l[idx] for idx in range(nLayers))
+                
             self.outputs, self.nextState = tf.nn.dynamic_rnn(self.rnn_layers, self.input, time_major=False,
                                                               initial_state=self.state)
 
@@ -269,3 +290,4 @@ class Directories(object):
     def __init__(self, model, summary):
         self.model = model
         self.summary = summary
+        
